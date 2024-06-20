@@ -319,10 +319,20 @@ function(
                         },
                     },
                     nodeSelector: nodeSelector,
+                    volumes: [{
+                        name: "infinigram-array",
+                        persistentVolumeClaim: {
+                            claimName: "infinigram-pileval-gpt2"
+                        }
+                    }],
                     containers: [
                         {
                             name: fullyQualifiedName + '-api',
                             image: apiImage,
+                            volumeMounts: [{
+                                mountPath: "mnt/infinigram-array",
+                                name: "infinigram-array"
+                            }],
                             command: [ '/api/start.sh' ],
                             # The "probes" below allow Kubernetes to determine
                             # if your application is working properly.
