@@ -1,0 +1,7 @@
+# Python cache files
+__pycache__
+**/*.pyc
+.venv/
+
+# Kubernetes configuration
+.skiff/webapp.yaml

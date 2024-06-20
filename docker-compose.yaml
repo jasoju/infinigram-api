@@ -1,0 +1,17 @@
+version: '3'
+services:
+  api:
+    build: ./api
+    volumes:
+      - ./api:/api
+    environment:
+      # This ensures that errors are printed as they occur, which
+      # makes debugging easier.
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+  proxy:
+    build: ./proxy
+    ports:
+      - 8080:8080
+    depends_on:
+      - api
