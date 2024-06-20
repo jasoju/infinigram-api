@@ -1,9 +1,11 @@
 version: '3'
 services:
   api:
+    platform: linux/amd64
     build: ./api
     volumes:
       - ./api:/api
+      - ./infinigram-array:/mnt/infinigram-array
     environment:
       # This ensures that errors are printed as they occur, which
       # makes debugging easier.

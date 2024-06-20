@@ -1,11 +1,10 @@
 # skiff-template-python-api
 
-A template application for [Skiff](https://github.com/allenai/skiff). 
-This template includes:
-
-* A Python based, [Flask](http://flask.pocoo.org/) RESTful API server.
-
-To start a new repository from this template, click [here](https://github.com/allenai/skiff-template-python-api/generate).
+## Reference
+This application is only made possible by researchers working on this paper:
+  Liu, Jiacheng and Min, Sewon and Zettlemoyer, Luke and Choi, Yejin and Hajishirzi, Hannaneh (2024).
+  Infini-gram: Scaling Unbounded n-gram Language Models to a Trillion Tokens.
+  arXiv preprint arXiv:2401.17377,
 
 ## Prerequisites
 

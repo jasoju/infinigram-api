@@ -1,4 +1,4 @@
-FROM python:3.11.3
+FROM python:3.12.4
 
 # Uncomment the following lines to enable GPU support.
 # See https://skiff.allenai.org/gpu.html for more details.
@@ -11,6 +11,7 @@ WORKDIR /api
 
 # Install Python dependencies
 COPY requirements.txt .
+COPY vendor vendor
 RUN pip install -r requirements.txt
 
 # Copy over the source code

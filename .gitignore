@@ -5,3 +5,4 @@ __pycache__
 
 # Kubernetes configuration
 .skiff/webapp.yaml
+infinigram-array
