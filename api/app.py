@@ -4,7 +4,7 @@ import os
 from apiflask import APIFlask
 from src import error, glog
 from src.health import health_blueprint
-from src.infinigram.query_infinigram import infinigram_blueprint
+from src.infinigram import infinigram_blueprint
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 

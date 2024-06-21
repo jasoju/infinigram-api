@@ -1,4 +1,4 @@
-FROM python:3.12.4
+FROM --platform=amd64 python:3.12.4
 
 # Uncomment the following lines to enable GPU support.
 # See https://skiff.allenai.org/gpu.html for more details.
