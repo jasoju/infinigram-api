@@ -8,7 +8,7 @@ class InfiniGramProcessor:
 
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained(
-            "meta-llama/Llama-2-7b-hf", add_bos_token=False, add_eos_token=False
+            "./vendor/llama-2-7b-hf/", add_bos_token=False, add_eos_token=False
         )
 
         self.infini_gram_engine = InfiniGramEngine(
@@ -17,7 +17,7 @@ class InfiniGramProcessor:
 
     def find_docs_with_query(self, query: str):
         tokenized_query_ids = self.tokenizer.encode(query)
-        self.infini_gram_engine.search_docs(
+        return self.infini_gram_engine.search_docs(
             input_ids=tokenized_query_ids, maxnum=1, max_disp_len=10
         )
 

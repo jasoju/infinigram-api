@@ -9,20 +9,15 @@ from src.infinigram.processor import processor
 infinigram_blueprint = APIBlueprint(name="query_infinigram", import_name=__name__)
 
 
-class InfinigramQueryOutput(Schema):
-    foo = String()
-
-
 class InfinigramQuery(Schema):
     query = String(required=True)
 
 
 @infinigram_blueprint.post("/query")
 @infinigram_blueprint.input(InfinigramQuery)
-@infinigram_blueprint.output(InfinigramQueryOutput)
 def query(json_data):
     try:
-        result = processor.find_docs_with_query(query=json_data.query)
+        result = processor.find_docs_with_query(query=json_data["query"])
 
         return result
     except Exception as e:
