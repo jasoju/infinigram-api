@@ -1,5 +1,5 @@
 {
-    "appName": "skiff-template-python-api",
+    "appName": "infinigram-api",
     "contact": "reviz",
     "team": "reviz",
     "replicas": { "prod": 2 }
