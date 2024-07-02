@@ -322,7 +322,7 @@ function(
                     volumes: [{
                         name: "infinigram-array",
                         persistentVolumeClaim: {
-                            claimName: "infinigram-pileval-gpt2"
+                            claimName: "infinigram-pileval-gpt2-2"
                         }
                     }],
                     containers: [

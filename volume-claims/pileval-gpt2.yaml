@@ -1,29 +1,29 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: infinigram-pileval-gpt2
+  name: infinigram-pileval-gpt2-2
 spec:
-  storageClassName: "infinigram-pileval-gpt2"
+  storageClassName: "infinigram-pileval-gpt2-2"
   capacity:
     storage: 10Gi
   accessModes:
     - ReadOnlyMany
   claimRef:
-    namespace: default
-    name: infinigram-pileval-gpt2
+    namespace: infinigram-api
+    name: infinigram-pileval-gpt2-2
   csi:
     driver: pd.csi.storage.gke.io
-    volumeHandle: projects/ai2-reviz/zones/us-west1-b/disks/infinigram-pileval
+    volumeHandle: projects/ai2-reviz/zones/us-west1-b/disks/infinigram-pileval-2
     fsType: ext4
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   namespace: infinigram-api
-  name: infinigram-pileval-gpt2
+  name: infinigram-pileval-gpt2-2
 spec:
   storageClassName: "balanced"
-  volumeName: infinigram-pileval-gpt2
+  volumeName: infinigram-pileval-gpt2-2
   accessModes:
     - ReadOnlyMany
   resources:
