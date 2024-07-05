@@ -23,8 +23,9 @@ spec:
     name: infinigram-pileval-gpt2
   csi:
     driver: pd.csi.storage.gke.io
-    volumeHandle: projects/ai2-reviz/zones/us-west1-b/disks/infinigram-pileval-2
+    volumeHandle: projects/ai2-reviz/zones/us-west1-b/disks/infinigram-pileval-test
     fsType: ext4
+    readOnly: true
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -32,8 +33,8 @@ metadata:
   namespace: infinigram-api
   name: infinigram-pileval-gpt2
 spec:
-  storageClassName: "infinigram-balanced"
-  volumeName: infinigram-pileval-gpt2-2
+  storageClassName: "infinigram"
+  volumeName: infinigram-pileval-gpt2
   accessModes:
     - ReadOnlyMany
   resources:

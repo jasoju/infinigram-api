@@ -322,7 +322,8 @@ function(
                     volumes: [{
                         name: "infinigram-array",
                         persistentVolumeClaim: {
-                            claimName: "infinigram-pileval-gpt2"
+                            claimName: "infinigram-pileval-gpt2",
+                            readOnly: true,
                         }
                     }],
                     containers: [
@@ -330,8 +331,9 @@ function(
                             name: fullyQualifiedName + '-api',
                             image: apiImage,
                             volumeMounts: [{
-                                mountPath: "mnt/infinigram-array",
-                                name: "infinigram-array"
+                                mountPath: "/mnt/infinigram-array",
+                                name: "infinigram-array",
+                                readOnly: true,
                             }],
                             command: [ '/api/start.sh' ],
                             # The "probes" below allow Kubernetes to determine
