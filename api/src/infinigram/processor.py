@@ -1,6 +1,7 @@
-from typing import Annotated, Iterable
+import json
+from typing import Annotated, Any, Iterable, Tuple, Union
 
-from fastapi import Body, Depends
+from fastapi import Body, Depends, Path
 from infini_gram.engine import InfiniGramEngine
 from pydantic import BaseModel, Field
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
@@ -10,6 +11,10 @@ from src.infinigram.index_mappings import AvailableInfiniGramIndexId, index_mapp
 
 class BaseInfiniGramResponse(BaseModel):
     index_id: str
+
+
+class InfiniGramErrorResponse(BaseModel):
+    error: str
 
 
 class Document(BaseModel):
@@ -30,6 +35,15 @@ class InfiniGramQueryResponse(BaseInfiniGramResponse):
 class InfiniGramCountResponse(BaseInfiniGramResponse):
     approx: bool
     count: int
+
+
+class InfiniGramRankResponse(BaseInfiniGramResponse):
+    document_index: int = Field(validation_alias="doc_ix")
+    document_length: int = Field(validation_alias="doc_len")
+    display_length: int = Field(validation_alias="disp_len")
+    metadata: dict = Field(validation_alias="parsed_metadata")
+    token_ids: Iterable[int]
+    texts: str
 
 
 class InfiniGramProcessor:
@@ -72,16 +86,59 @@ class InfiniGramProcessor:
 
         return InfiniGramCountResponse(index_id=self.index_id, **count_result)
 
+    def rank(
+        self, shard: int, rank: int
+    ) -> Union[InfiniGramRankResponse, InfiniGramErrorResponse]:
+        get_doc_by_rank_response = self.infini_gram_engine.get_doc_by_rank(
+            s=shard, rank=rank, max_disp_len=10
+        )
+
+        if "error" in get_doc_by_rank_response:
+            return InfiniGramErrorResponse(**get_doc_by_rank_response)
+
+        parsed_metadata = json.loads(get_doc_by_rank_response["metadata"])
+        decoded_texts = ' '.join(self.tokenizer.decode(token_ids) for token_ids in get_doc_by_rank_response['token_ids'])
+
+        return InfiniGramRankResponse(
+            index_id=self.index_id,
+            parsed_metadata=parsed_metadata,  # type: ignore - parsed_metadata resolves to metadata with a validation alias
+            texts=decoded_texts,
+            **get_doc_by_rank_response,
+        )
+
 
 indexes = {index: InfiniGramProcessor(index) for index in AvailableInfiniGramIndexId}
 
 
-def InfiniGramProcessorFactory(
+# TODO: See if we can simplify these
+def InfiniGramProcessorFactoryPathParam(
+    index_id: AvailableInfiniGramIndexId,
+) -> InfiniGramProcessor:
+    return indexes[index_id]
+
+
+InfiniGramProcessorFactoryPathParamDependency = Annotated[
+    InfiniGramProcessor, Depends(InfiniGramProcessorFactoryPathParam)
+]
+
+
+def InfiniGramProcessorFactoryBodyParam(
     index_id: AvailableInfiniGramIndexId = Body(),
 ) -> InfiniGramProcessor:
     return indexes[index_id]
 
 
-InfiniGramProcessorFactoryDependency = Annotated[
-    InfiniGramProcessor, Depends(InfiniGramProcessorFactory)
+InfiniGramProcessorFactoryBodyParamDependency = Annotated[
+    InfiniGramProcessor, Depends(InfiniGramProcessorFactoryBodyParam)
+]
+
+
+def InfiniGramProcessorFactoryPathParamFactory(
+    index_id: AvailableInfiniGramIndexId = Path(),
+) -> InfiniGramProcessor:
+    return indexes[index_id]
+
+
+InfiniGramProcessorFactoryPathParamDependency = Annotated[
+    InfiniGramEngine, Depends(InfiniGramProcessorFactoryPathParamFactory)
 ]
