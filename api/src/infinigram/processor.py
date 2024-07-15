@@ -40,7 +40,8 @@ class InfiniGramRankResponse(BaseInfiniGramResponse):
     display_length: int = Field(validation_alias="disp_len")
     metadata: dict = Field(validation_alias="parsed_metadata")
     token_ids: Iterable[int]
-    texts: str
+    text: str
+
 
 
 class InfiniGramDocumentsResponse(BaseInfiniGramResponse):
@@ -103,15 +104,12 @@ class InfiniGramProcessor:
         self.__handleError(get_doc_by_rank_response)
 
         parsed_metadata = json.loads(get_doc_by_rank_response["metadata"])
-        decoded_texts = " ".join(
-            self.tokenizer.decode(token_ids)
-            for token_ids in get_doc_by_rank_response["token_ids"]
-        )
+        decoded_text = self.tokenizer.decode(get_doc_by_rank_response["token_ids"])
 
         return InfiniGramRankResponse(
             index_id=self.index_id,
             parsed_metadata=parsed_metadata,  # type: ignore - parsed_metadata resolves to metadata with a validation alias
-            texts=decoded_texts,
+            text=decoded_text,
             **get_doc_by_rank_response,
         )
 
