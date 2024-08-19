@@ -1,5 +1,7 @@
 from itertools import islice
-from typing import Generic, Iterable, List, Sequence, TypeVar
+from typing import Generic, Iterable, List, Optional, Sequence, TypeVar
+
+from pydantic import Field
 
 from src.camel_case_model import CamelCaseModel
 from src.documents.documents_router import DocumentsServiceDependency
@@ -39,12 +41,26 @@ class AttributionSpan(BaseAttributionSpan[AttributionDocument]): ...
 class AttributionSpanWithDocuments(BaseAttributionSpan[DocumentWithPointer]): ...
 
 
-class InfiniGramAttributionResponse(BaseInfiniGramResponse):
-    spans: Sequence[AttributionSpan]
+TAttributionSpan = TypeVar("TAttributionSpan")
 
 
-class InfiniGramAttributionResponseWithDocuments(BaseInfiniGramResponse):
-    spans: Sequence[AttributionSpanWithDocuments]
+class BaseInfinigramAttributionResponse(
+    BaseInfiniGramResponse, Generic[TAttributionSpan]
+):
+    spans: Sequence[TAttributionSpan]
+    input_tokens: Optional[Sequence[str]] = Field(
+        examples=[["busy", " medieval", " streets", "."]]
+    )
+
+
+class InfiniGramAttributionResponse(
+    BaseInfinigramAttributionResponse[AttributionSpan]
+): ...
+
+
+class InfiniGramAttributionResponseWithDocuments(
+    BaseInfinigramAttributionResponse[AttributionSpanWithDocuments]
+): ...
 
 
 class AttributionService:
@@ -73,8 +89,9 @@ class AttributionService:
         delimiters: List[str],
         minimum_span_length: int,
         maximum_frequency: int,
-        include_documents: bool,
         maximum_document_display_length: int,
+        include_documents: Optional[bool] = False,
+        include_input_as_tokens: Optional[bool] = False,
     ) -> InfiniGramAttributionResponse | InfiniGramAttributionResponseWithDocuments:
         attribute_result = self.infini_gram_processor.attribute(
             input=prompt_response,
@@ -119,7 +136,13 @@ class AttributionService:
                 spans_with_documents.append(new_span)
 
             return InfiniGramAttributionResponseWithDocuments(
-                index=self.infini_gram_processor.index, spans=spans_with_documents
+                index=self.infini_gram_processor.index,
+                spans=spans_with_documents,
+                input_tokens=self.infini_gram_processor.tokenize_to_list(
+                    prompt_response
+                )
+                if include_input_as_tokens
+                else None,
             )
 
         else:
@@ -150,5 +173,11 @@ class AttributionService:
                 )
 
             return InfiniGramAttributionResponse(
-                index=self.infini_gram_processor.index, spans=spans
+                index=self.infini_gram_processor.index,
+                spans=spans,
+                input_tokens=self.infini_gram_processor.tokenize_to_list(
+                    prompt_response
+                )
+                if include_input_as_tokens
+                else None,
             )

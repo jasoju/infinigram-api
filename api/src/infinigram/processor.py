@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Any, Iterable, List, TypeGuard, TypeVar, cast
+from typing import Annotated, Any, Iterable, List, Sequence, TypeGuard, TypeVar, cast
 
 from fastapi import Depends
 from infini_gram.engine import InfiniGramEngine
@@ -86,6 +86,9 @@ class InfiniGramProcessor:
 
     def decode_tokens(self, token_ids: Iterable[int]) -> str:
         return self.tokenizer.decode_tokens(token_ids)
+
+    def tokenize_to_list(self, input: TextInput) -> Sequence[str]:
+        return self.tokenizer.tokenize_to_list(input)
 
     def __handle_error(
         self,
@@ -191,7 +194,9 @@ class InfiniGramProcessor:
         attribute_result = self.__handle_error(attribute_response)
 
         return InfiniGramAttributionResponse(
-            **attribute_result, index=self.index, input_token_ids=input_ids
+            **attribute_result,
+            index=self.index,
+            input_token_ids=input_ids,
         )
 
     def get_document_by_pointer(
@@ -214,7 +219,6 @@ class InfiniGramProcessor:
             token_ids=document_result["token_ids"],
             text=decoded_text,
         )
-        return document_result
 
 
 indexes = {index: InfiniGramProcessor(index) for index in AvailableInfiniGramIndexId}
