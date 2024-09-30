@@ -93,8 +93,33 @@ The `infinigram-array` folder is mounted to the Docker container for the API thr
   2. Change names in `volume-claims/writer-pod.yaml` to match the disk you created and the index name
   3. Create a writer pod: `kubectl apply -f volume-claims/writer-pod.yaml --namespace=infinigram-api`
     * (TODO) Set up a baseline image to use for transferring files. Needs to have python3 and gcloud tools
+  4. connect to the pod and set it up with python3 and gcloud
+    * kubectl exec --stdin --tty infini-gram-writer --namespace=infinigram-api -- /bin/ash
+    * apk add python3 curl which bash
+    * curl -sSL https://sdk.cloud.google.com | bash
+    * bash
   4. Download the files from the bucket into /mnt/infini-gram-array
     * `gcloud storage cp gs://infinigram/index/<index name>/* /mnt/infini-gram-array/`
+
+#### Adding the volume to webapp.jsonnet
+  1. Add a volume to the deployment
+     ```
+      {
+        name: "infinigram-array-<ARRAY_NAME>>",
+        persistentVolumeClaim: {
+            claimName: "infinigram-<ARRAY_NAME>",
+            readOnly: true,
+        }
+      }
+     ```
+  2. Add a volumeMount to the -api container
+     ```
+      {
+          mountPath: "/mnt/infinigram-array/<VOLUME_NAME>",
+          name: "infinigram-array-<ARRAY_NAME>",
+          readOnly: true,
+      }
+     ```
 
 ### Locally
 
