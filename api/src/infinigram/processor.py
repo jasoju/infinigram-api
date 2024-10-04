@@ -1,7 +1,7 @@
 import json
-import numpy as np
 from typing import Annotated, Any, Iterable, List, Sequence, TypeGuard, TypeVar, cast
 
+import numpy as np
 from fastapi import Depends
 from infini_gram.engine import InfiniGramEngine
 from infini_gram.models import (
@@ -53,6 +53,11 @@ class DocumentWithPointer(Document):
 class InfiniGramAttributionResponse(BaseInfiniGramResponse):
     spans: List[AttributionSpan]
     input_token_ids: List[int]
+
+
+class InfiniGramSearchResponse(CamelCaseModel):
+    documents: List[Document]
+    total_documents: int
 
 
 TInfiniGramResponse = TypeVar("TInfiniGramResponse")
@@ -157,26 +162,52 @@ class InfiniGramProcessor:
         )
 
     def search_documents(
-        self, search: str, maximum_document_display_length: int
-    ) -> List[Document]:
+        self,
+        search: str,
+        maximum_document_display_length: int,
+        page: int,
+        page_size: int,
+    ) -> InfiniGramSearchResponse:
         tokenized_query_ids = self.tokenize(search)
         matching_documents = self.infini_gram_engine.find(input_ids=tokenized_query_ids)
 
         matching_documents_result = self.__handle_error(matching_documents)
 
-        docs: List[Document] = []
-        for shard, (start, end) in enumerate(
-            matching_documents_result["segment_by_shard"]
-        ):
-            for rank in range(start, end):
-                doc = self.get_document_by_rank(
-                    shard=shard,
-                    rank=rank,
-                    maximum_document_display_length=maximum_document_display_length,
-                )
-                docs.append(doc)
+        if (page * page_size) >= matching_documents_result["cnt"]:
+            # Pagination standard is to return an empty array if we're out of bounds
+            return InfiniGramSearchResponse(
+                documents=[], total_documents=matching_documents_result["cnt"]
+            )
 
-        return docs
+        shard_and_rank_in_page = []
+        shard = 0
+        offset = page * page_size
+        for _ in range(page_size):
+            while offset >= matching_documents_result["segment_by_shard"][shard][1] - matching_documents_result["segment_by_shard"][shard][0]:
+                offset -= matching_documents_result["segment_by_shard"][shard][1] - matching_documents_result["segment_by_shard"][shard][0]
+                shard += 1
+                if shard >= len(matching_documents_result["segment_by_shard"]):
+                    break
+            if shard >= len(matching_documents_result["segment_by_shard"]):
+                # We have reached the end of results
+                break
+            shard_and_rank_in_page.append(
+                {"shard": shard, "rank": matching_documents_result["segment_by_shard"][shard][0] + offset}
+            )
+            offset += 1
+
+        docs = [
+            self.get_document_by_rank(
+                shard=shard_and_rank["shard"],
+                rank=shard_and_rank["rank"],
+                maximum_document_display_length=maximum_document_display_length,
+            )
+            for shard_and_rank in shard_and_rank_in_page
+        ]
+
+        return InfiniGramSearchResponse(
+            documents=docs, total_documents=matching_documents_result["cnt"]
+        )
 
     # Attribute doesn't return a high-level response, it just returns stuff from the engine. Use this inside a service instead of returning it directly
     def attribute(
@@ -202,10 +233,12 @@ class InfiniGramProcessor:
 
         # Limit the density of spans, and keep the longest ones
         maximum_num_spans = int(np.ceil(len(input_ids) * maximum_span_density))
-        spans = attribute_response['spans']
-        spans = sorted(spans, key=lambda x: x["length"], reverse=True)[:maximum_num_spans]
+        spans = attribute_response["spans"]
+        spans = sorted(spans, key=lambda x: x["length"], reverse=True)[
+            :maximum_num_spans
+        ]
         spans = list(sorted(spans, key=lambda x: x["l"]))
-        attribute_response['spans'] = spans
+        attribute_response["spans"] = spans
 
         attribute_result = self.__handle_error(attribute_response)
 

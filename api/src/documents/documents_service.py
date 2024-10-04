@@ -1,6 +1,7 @@
 import asyncio
 from functools import partial
-from typing import Iterable
+from math import ceil
+from typing import Iterable, List
 
 from pydantic import BaseModel
 
@@ -18,6 +19,14 @@ class InfiniGramDocumentResponse(Document, BaseInfiniGramResponse): ...
 
 class InfiniGramDocumentsResponse(BaseInfiniGramResponse):
     documents: Iterable[Document]
+
+
+class SearchResponse(BaseInfiniGramResponse):
+    documents: List[Document]
+    page: int
+    page_size: int
+    page_count: int
+    total_documents: int
 
 
 class GetDocumentByPointerRequest(BaseModel):
@@ -51,11 +60,17 @@ class DocumentsService:
         )
 
     def search_documents(
-        self, search: str, maximum_document_display_length: int
-    ) -> InfiniGramDocumentsResponse:
+        self,
+        search: str,
+        maximum_document_display_length: int,
+        page_size: int,
+        page: int,
+    ) -> SearchResponse:
         search_documents_result = self.infini_gram_processor.search_documents(
             search=search,
             maximum_document_display_length=maximum_document_display_length,
+            page=page,
+            page_size=page_size,
         )
 
         mapped_documents = [
@@ -67,11 +82,16 @@ class DocumentsService:
                 metadata=document.metadata,
                 token_ids=document.token_ids,
             )
-            for document in search_documents_result
+            for document in search_documents_result.documents
         ]
 
-        return InfiniGramDocumentsResponse(
-            index=self.infini_gram_processor.index, documents=mapped_documents
+        return SearchResponse(
+            index=self.infini_gram_processor.index,
+            documents=mapped_documents,
+            page=page,
+            page_size=page_size,
+            total_documents=search_documents_result.total_documents,
+            page_count=ceil(search_documents_result.total_documents / page_size),
         )
 
     def get_document_by_index(
@@ -156,9 +176,11 @@ class DocumentsService:
             document_tasks = [
                 tg.create_task(
                     asyncio.to_thread(
-                        partial(self.get_document_by_pointer,
-                                document_request=documentRequest,
-                                maximum_document_display_length=maximum_document_display_length)
+                        partial(
+                            self.get_document_by_pointer,
+                            document_request=documentRequest,
+                            maximum_document_display_length=maximum_document_display_length,
+                        )
                     )
                 )
                 for documentRequest in document_requests
