@@ -82,12 +82,12 @@ def get_document_by_index(
 
 
 @documents_router.get("/{index}/documents", tags=["documents"])
-async def get_documents_by_index(
+def get_documents_by_index(
     documents_service: DocumentsServiceDependency,
     document_indexes: Annotated[list[int], Query()],
     maximum_document_display_length: MaximumDocumentDisplayLengthType = 10,
 ) -> InfiniGramDocumentsResponse:
-    result = await documents_service.get_multiple_documents_by_index(
+    result = documents_service.get_multiple_documents_by_index(
         document_indexes=document_indexes,
         maximum_document_display_length=maximum_document_display_length,
     )
