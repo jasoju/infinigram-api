@@ -1,3 +1,4 @@
+from enum import Enum
 import json
 from typing import Annotated, Any, Iterable, List, Sequence, Tuple, TypeGuard, TypeVar, cast
 
@@ -21,6 +22,11 @@ from src.infinigram.index_mappings import AvailableInfiniGramIndexId, index_mapp
 from src.infinigram.infini_gram_engine_exception import InfiniGramEngineException
 
 from .tokenizers.tokenizer import Tokenizer
+
+
+class SpanRankingMethod(Enum):
+    LENGTH = "length"
+    UNIGRAM_LOGPROB_SUM = "unigram_logprob_sum"
 
 
 class BaseInfiniGramResponse(CamelCaseModel):
@@ -85,6 +91,7 @@ class InfiniGramProcessor:
             index_dir=index_mapping["index_dir"],
             eos_token_id=self.tokenizer.eos_token_id,
             bow_ids_path=self.tokenizer.bow_ids_path,
+            precompute_unigram_logprobs=True,
             # for the attribution feature, disabling prefetching on ds and sa can speed things up
             ds_prefetch_depth=0,
             sa_prefetch_depth=0,
@@ -317,10 +324,11 @@ class InfiniGramProcessor:
         self,
         input: str,
         delimiters: List[str],
-        maximum_span_density: float,
+        allow_spans_with_partial_words: bool,
         minimum_span_length: int,
         maximum_frequency: int,
-        allow_spans_with_partial_words: bool,
+        maximum_span_density: float,
+        span_ranking_method: SpanRankingMethod,
     ) -> InfiniGramAttributionResponse:
         input_ids = self.tokenize(input)
 
@@ -337,9 +345,13 @@ class InfiniGramProcessor:
         # Limit the density of spans, and keep the longest ones
         maximum_num_spans = int(np.ceil(len(input_ids) * maximum_span_density))
         spans = attribute_response["spans"]
-        spans = sorted(spans, key=lambda x: x["length"], reverse=True)[
-            :maximum_num_spans
-        ]
+        if span_ranking_method == SpanRankingMethod.LENGTH:
+            spans = sorted(spans, key=lambda x: x["length"], reverse=True)
+        elif span_ranking_method == SpanRankingMethod.UNIGRAM_LOGPROB_SUM:
+            spans = sorted(spans, key=lambda x: x["unigram_logprob_sum"], reverse=False)
+        else:
+            raise ValueError(f"Unknown span ranking method: {span_ranking_method}")
+        spans = spans[:maximum_num_spans]
         spans = list(sorted(spans, key=lambda x: x["l"]))
         attribute_response["spans"] = spans
 
