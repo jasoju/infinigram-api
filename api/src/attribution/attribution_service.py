@@ -101,6 +101,22 @@ class AttributionService:
 
         return (span_text_tokens, span_text)
 
+    def cut_document(
+        self, token_ids: List[int], needle_offset: int, span_length: int, maximum_context_length: int
+    ) -> tuple[str, int, int]:
+        # cut the left context if necessary
+        if needle_offset > maximum_context_length:
+            token_ids = token_ids[
+                (needle_offset - maximum_context_length):
+            ]
+            needle_offset = maximum_context_length
+        # cut the right context if necessary
+        if len(token_ids) - needle_offset - span_length > maximum_context_length:
+            token_ids = token_ids[:(needle_offset + span_length + maximum_context_length)]
+        display_length = len(token_ids)
+        text = self.infini_gram_processor.decode_tokens(token_ids)
+        return text, display_length, needle_offset
+
     def get_attribution_for_response(
         self,
         prompt: str,
@@ -114,6 +130,7 @@ class AttributionService:
         include_documents: bool,
         maximum_document_context_length_retrieved: int,
         maximum_document_context_length_displayed: int,
+        maximum_document_context_length_displayed_long: int,
         maximum_documents_per_span: int,
         filter_method: FilterMethod,
         filter_bm25_fields_considered: FieldsConsideredForRanking,
@@ -244,32 +261,21 @@ class AttributionService:
             # For each document, truncate the excess context from retrieved_length to displayed_length
             for span_with_documents in spans_with_documents:
                 for doc in span_with_documents.documents:
-                    # cut the left context if necessary
-                    if doc.needle_offset > maximum_document_context_length_displayed:
-                        doc.token_ids = doc.token_ids[
-                            (
-                                doc.needle_offset
-                                - maximum_document_context_length_displayed
-                            ) :
-                        ]
-                        doc.needle_offset = maximum_document_context_length_displayed
-                    # cut the right context if necessary
-                    if (
-                        len(doc.token_ids)
-                        - doc.needle_offset
-                        - span_with_documents.length
-                        > maximum_document_context_length_displayed
-                    ):
-                        doc.token_ids = doc.token_ids[
-                            : (
-                                doc.needle_offset
-                                + span_with_documents.length
-                                + maximum_document_context_length_displayed
-                            )
-                        ]
-                    doc.display_length = len(doc.token_ids)
-                    doc.text = self.infini_gram_processor.decode_tokens(doc.token_ids)
-
+                    # prepare the long version
+                    doc.text_long, doc.display_length_long, doc.needle_offset_long = self.cut_document(
+                        doc.token_ids,
+                        doc.needle_offset,
+                        span_with_documents.length,
+                        maximum_document_context_length_displayed_long,
+                    )
+                    # prepare the short version
+                    # this will overwrite doc.needle_offset, so make sure to prepare the short version last!
+                    doc.text, doc.display_length, doc.needle_offset = self.cut_document(
+                        doc.token_ids,
+                        doc.needle_offset,
+                        span_with_documents.length,
+                        maximum_document_context_length_displayed,
+                    )
             return InfiniGramAttributionResponseWithDocuments(
                 index=self.infini_gram_processor.index,
                 spans=spans_with_documents,
