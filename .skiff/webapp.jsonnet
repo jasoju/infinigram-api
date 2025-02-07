@@ -321,7 +321,9 @@ function(
                             ]
                         },
                     },
-                    nodeSelector: nodeSelector,
+                    nodeSelector: {
+                        "cloud.google.com/gke-nodepool": "cpu64"
+                    },
                     volumes: [{
                         name: "infinigram-array-pileval-gpt2",
                         persistentVolumeClaim: {
@@ -444,8 +446,8 @@ function(
                             # https://skiff.allenai.org/resources.html
                             resources: {
                                 requests: {
-                                    cpu: 30,
-                                    memory: '200G'
+                                    cpu: 62,
+                                    memory: '130G'
                                 },
                                 limits: { }
                                    + gpuLimits # only the first container should have gpuLimits applied
