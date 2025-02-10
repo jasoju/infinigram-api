@@ -20,6 +20,7 @@ from infini_gram.models import (
     ErrorResponse,
     InfiniGramEngineResponse,
 )
+from opentelemetry import trace
 from pydantic import Field
 from transformers.tokenization_utils_base import (  # type: ignore
     EncodedInput,
@@ -28,6 +29,7 @@ from transformers.tokenization_utils_base import (  # type: ignore
 )
 
 from src.camel_case_model import CamelCaseModel
+from src.config import get_config
 from src.infinigram.index_mappings import AvailableInfiniGramIndexId, index_mappings
 from src.infinigram.infini_gram_engine_exception import InfiniGramEngineException
 
@@ -90,6 +92,9 @@ def is_infini_gram_error_response(
     return isinstance(val, dict) and "error" in val
 
 
+tracer = trace.get_tracer(get_config().application_name)
+
+
 class InfiniGramProcessor:
     index: str
     tokenizer: Tokenizer
@@ -112,14 +117,17 @@ class InfiniGramProcessor:
             od_prefetch_depth=3,
         )
 
+    @tracer.start_as_current_span("infini_gram_processor/tokenize")
     def tokenize(
         self, input: TextInput | PreTokenizedInput | EncodedInput
     ) -> List[int]:
         return self.tokenizer.tokenize(input)
 
+    @tracer.start_as_current_span("infini_gram_processor/decode_tokens")
     def decode_tokens(self, token_ids: Iterable[int]) -> str:
         return self.tokenizer.decode_tokens(token_ids)
 
+    @tracer.start_as_current_span("infini_gram_processor/tokenize_to_list")
     def tokenize_to_list(self, input: TextInput) -> Sequence[str]:
         return self.tokenizer.tokenize_to_list(input)
 
@@ -132,6 +140,7 @@ class InfiniGramProcessor:
 
         return cast(TInfiniGramResponse, result)
 
+    @tracer.start_as_current_span("infini_gram_processor/count_n_gram")
     def count_n_gram(self, query: str) -> InfiniGramCountResponse:
         tokenized_query_ids = self.tokenize(query)
 
@@ -141,6 +150,7 @@ class InfiniGramProcessor:
 
         return InfiniGramCountResponse(index=self.index, **count_result)
 
+    @tracer.start_as_current_span("infini_gram_processor/get_document_by_rank")
     def get_document_by_rank(
         self, shard: int, rank: int, maximum_document_display_length: int
     ) -> Document:
@@ -163,6 +173,7 @@ class InfiniGramProcessor:
             text=decoded_text,
         )
 
+    @tracer.start_as_current_span("infini_gram_processor/get_documents_by_ranks")
     def get_documents_by_ranks(
         self,
         list_of_shard_and_rank: List[Tuple[int, int]],
@@ -194,6 +205,7 @@ class InfiniGramProcessor:
 
         return documents
 
+    @tracer.start_as_current_span("infini_gram_processor/get_document_by_pointer")
     def get_document_by_pointer(
         self, shard: int, pointer: int, maximum_document_display_length: int
     ) -> Document:
@@ -216,6 +228,7 @@ class InfiniGramProcessor:
             text=decoded_text,
         )
 
+    @tracer.start_as_current_span("infini_gram_processor/get_documents_by_pointers")
     def get_documents_by_pointers(
         self,
         list_of_shard_and_pointer: List[Tuple[int, int]],
@@ -247,6 +260,7 @@ class InfiniGramProcessor:
 
         return documents
 
+    @tracer.start_as_current_span("infini_gram_processor/get_document_by_index")
     def get_document_by_index(
         self, document_index: int, maximum_document_display_length: int
     ) -> Document:
@@ -269,6 +283,7 @@ class InfiniGramProcessor:
             text=decoded_text,
         )
 
+    @tracer.start_as_current_span("infini_gram_processor/get_documents_by_indexes")
     def get_documents_by_indexes(
         self, list_of_document_index: List[int], maximum_document_display_length: int
     ) -> List[Document]:
@@ -298,6 +313,7 @@ class InfiniGramProcessor:
 
         return documents
 
+    @tracer.start_as_current_span("infini_gram_processor/get_documents_by_rank_v2")
     def get_document_by_rank_v2(
         self, shard: int, rank: int, needle_length: int, maximum_context_length: int
     ) -> Document:
@@ -323,6 +339,7 @@ class InfiniGramProcessor:
             text=decoded_text,
         )
 
+    @tracer.start_as_current_span("infini_gram_processor/get_documents_by_ranks_v2")
     def get_documents_by_ranks_v2(
         self,
         list_of_shard_and_rank: List[Tuple[int, int]],
@@ -356,6 +373,7 @@ class InfiniGramProcessor:
 
         return documents
 
+    @tracer.start_as_current_span("infini_gram_processor/get_document_by_pointer_v2")
     def get_document_by_pointer_v2(
         self, shard: int, pointer: int, needle_length: int, maximum_context_length: int
     ) -> Document:
@@ -381,6 +399,7 @@ class InfiniGramProcessor:
             text=decoded_text,
         )
 
+    @tracer.start_as_current_span("infini_gram_processor/get_documents_by_pointers_v2")
     def get_documents_by_pointers_v2(
         self,
         list_of_shard_and_pointer: List[Tuple[int, int]],
@@ -414,6 +433,7 @@ class InfiniGramProcessor:
 
         return documents
 
+    @tracer.start_as_current_span("infini_gram_processor/search_documents")
     def search_documents(
         self,
         search: str,
@@ -473,6 +493,7 @@ class InfiniGramProcessor:
             documents=docs, total_documents=matching_documents_result["cnt"]
         )
 
+    @tracer.start_as_current_span("infini_gram_processor/attribute")
     # Attribute doesn't return a high-level response, it just returns stuff from the engine. Use this inside a service instead of returning it directly
     def attribute(
         self,
