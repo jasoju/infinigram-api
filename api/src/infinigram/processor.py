@@ -12,8 +12,9 @@ from typing import (
 )
 
 from fastapi import Depends
-from infini_gram.engine import InfiniGramEngine
+from infini_gram.engine import InfiniGramEngineDiff
 from infini_gram.models import (
+    AttributionDoc,
     AttributionSpan,
     ErrorResponse,
     InfiniGramEngineResponse,
@@ -45,8 +46,8 @@ class GetDocumentByRankRequest(BaseModel):
 
 
 class GetDocumentByPointerRequest(BaseModel):
-    shard: int
-    pointer: int
+    docs: List[AttributionDoc]
+    span_ids: List[int]
     needle_length: int
     maximum_context_length: int
 
@@ -82,6 +83,7 @@ class Document(CamelCaseModel):
     metadata: dict[str, Any]
     token_ids: List[int]
     text: str
+    blocked: bool = False
 
 
 class InfiniGramAttributionResponse(BaseInfiniGramResponse):
@@ -109,7 +111,7 @@ tracer = trace.get_tracer(get_config().application_name)
 class InfiniGramProcessor:
     index: str
     tokenizer: Tokenizer
-    infini_gram_engine: InfiniGramEngine
+    infini_gram_engine: InfiniGramEngineDiff
 
     def __init__(self, index: AvailableInfiniGramIndexId):
         self.index = index.value
@@ -117,8 +119,9 @@ class InfiniGramProcessor:
 
         self.tokenizer = index_mapping["tokenizer"]
 
-        self.infini_gram_engine = InfiniGramEngine(
+        self.infini_gram_engine = InfiniGramEngineDiff(
             index_dir=index_mapping["index_dir"],
+            index_dir_diff=index_mapping["index_dir_diff"],
             eos_token_id=self.tokenizer.eos_token_id,
             bow_ids_path=self.tokenizer.bow_ids_path,
             precompute_unigram_logprobs=True,
@@ -254,40 +257,38 @@ class InfiniGramProcessor:
     @tracer.start_as_current_span("infini_gram_processor/get_documents_by_pointers")
     def get_documents_by_pointers(
         self,
-        document_requests: Iterable[GetDocumentByPointerRequest],
-    ) -> List[Document]:
+        document_request_by_span: Iterable[GetDocumentByPointerRequest],
+    ) -> List[List[Document]]:
         get_docs_by_pointers_response = self.infini_gram_engine.get_docs_by_ptrs_2(
             requests=[
-                (
-                    document_request.shard,
-                    document_request.pointer,
-                    document_request.needle_length,
-                    document_request.maximum_context_length
-                )
-                for document_request in document_requests
+                {
+                    'docs': document_request.docs,
+                    'span_ids': document_request.span_ids,
+                    'needle_len': document_request.needle_length,
+                    'max_ctx_len': document_request.maximum_context_length,
+                }
+                for document_request in document_request_by_span
             ],
         )
 
-        document_results = self.__handle_error(get_docs_by_pointers_response)
+        documents_by_span_result = self.__handle_error(get_docs_by_pointers_response)
 
-        documents = []
-        for document_result in document_results:
-            parsed_metadata = json.loads(document_result["metadata"])
-            decoded_text = self.decode_tokens(document_result["token_ids"])
-
-            documents.append(
+        return [
+            [
                 Document(
                     document_index=document_result["doc_ix"],
                     document_length=document_result["doc_len"],
                     display_length=document_result["disp_len"],
                     needle_offset=document_result["needle_offset"],
-                    metadata=parsed_metadata,
+                    metadata=json.loads(document_result["metadata"]),
                     token_ids=document_result["token_ids"],
-                    text=decoded_text,
+                    text=self.decode_tokens(document_result["token_ids"]),
+                    blocked=document_result["blocked"],
                 )
-            )
-
-        return documents
+                for document_result in documents_result
+            ]
+            for documents_result in documents_by_span_result
+        ]
 
     @tracer.start_as_current_span("infini_gram_processor/get_document_by_index")
     def get_document_by_index(
