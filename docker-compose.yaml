@@ -1,12 +1,17 @@
-version: '3'
+x-shared-env: &shared-env
+  PYTHONUNBUFFERED: 1
+  INDEX_BASE_PATH: /mnt/infinigram-array
+  ATTRIBUTION_QUEUE_URL: postgres://infini-gram:llmz@db:5432/infini-gram?sslmode=disable&application_name=infini-gram-attribution-worker
+
 services:
   api:
     platform: linux/amd64
     build:
-      context: ./api
+      context: .
+      dockerfile: ./api/Dockerfile
       target: dev
     volumes:
-      - ./api:/api
+      - ./api:/app/api
       # If you add an volume here make sure you add it to /bin/download-infini-gram-array.sh too
       - ./infinigram-array/v4_pileval_llama:/mnt/infinigram-array/v4_pileval_llama
       - ./infinigram-array/olmoe-mix-0924-dclm:/mnt/infinigram-array/olmoe-mix-0924-dclm
@@ -14,19 +19,35 @@ services:
       - ./infinigram-array/v4-olmoe-0125-1b-7b-anneal-adapt:/mnt/infinigram-array/v4-olmoe-0125-1b-7b-anneal-adapt
       - ./infinigram-array/v4-olmo-2-1124-13b-anneal-adapt:/mnt/infinigram-array/v4-olmo-2-1124-13b-anneal-adapt
       - ./infinigram-array/v4-olmo-2-0325-32b-anneal-adapt:/mnt/infinigram-array/v4-olmo-2-0325-32b-anneal-adapt
-    environment:
-      # This ensures that errors are printed as they occur, which
-      # makes debugging easier.
-      - PYTHONUNBUFFERED=1
-      - INDEX_BASE_PATH=/mnt/infinigram-array
-      - LOG_LEVEL=DEBUG
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol:4318
+    environment: 
+      LOG_LEVEL: DEBUG
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
+      <<: *shared-env
+
+  attribution-worker:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./attribution_worker/Dockerfile
+      target: dev
+    volumes:
+      - ./attribution_worker:/app/attribution_worker
+      # If you add an volume here make sure you add it to /bin/download-infini-gram-array.sh too
+      - ./infinigram-array/v4_pileval_llama:/mnt/infinigram-array/v4_pileval_llama
+      - ./infinigram-array/olmoe-mix-0924-dclm:/mnt/infinigram-array/olmoe-mix-0924-dclm
+      - ./infinigram-array/olmoe-mix-0924-nodclm:/mnt/infinigram-array/olmoe-mix-0924-nodclm
+      - ./infinigram-array/v4-olmoe-0125-1b-7b-anneal-adapt:/mnt/infinigram-array/v4-olmoe-0125-1b-7b-anneal-adapt
+      - ./infinigram-array/v4-olmo-2-1124-13b-anneal-adapt:/mnt/infinigram-array/v4-olmo-2-1124-13b-anneal-adapt
+      - ./infinigram-array/v4-olmo-2-0325-32b-anneal-adapt:/mnt/infinigram-array/v4-olmo-2-0325-32b-anneal-adapt
+    environment: *shared-env
+
   proxy:
     build: ./proxy
     ports:
       - 8080:8080
     depends_on:
       - api
+
   otelcol:
     image: otel/opentelemetry-collector-contrib:0.115.1
     volumes:
@@ -38,5 +59,17 @@ services:
     ports:
       # Collector prometheus port. The metrics are checked in tests
       - 8888
+
+  db:
+    image: postgres:15
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: llmz
+      POSTGRES_DB: infini-gram
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema:/docker-entrypoint-initdb.d
 volumes:
   logs:
+  pgdata:
