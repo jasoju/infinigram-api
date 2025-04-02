@@ -143,4 +143,6 @@ class AttributionService:
 
             return attribute_result
         except TimeoutError:
-            raise AttributionTimeoutError()
+            raise AttributionTimeoutError(
+                "The server wasn't able to process your request in time. It is likely overloaded. Please try again later."
+            )
