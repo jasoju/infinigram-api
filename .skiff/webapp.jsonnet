@@ -333,7 +333,28 @@ function(
                 claimName: "infinigram-v4-olmo-2-0325-32b-anneal-adapt",
                 readOnly: true,
             }
-        }
+        },
+        {
+            name: "infinigram-array-v4-tulu-3-8b-adapt",
+            persistentVolumeClaim: {
+                claimName: "infinigram-v4-tulu-3-8b-adapt-llama",
+                readOnly: true,
+            }
+        },
+        {
+            name: "infinigram-array-v4-tulu-3-70b-adapt",
+            persistentVolumeClaim: {
+                claimName: "infinigram-v4-tulu-3-70b-adapt-llama",
+                readOnly: true,
+            }
+        },
+        {
+            name: "infinigram-array-v4-tulu-3-405b-adapt",
+            persistentVolumeClaim: {
+                claimName: "infinigram-v4-tulu-3-405b-adapt-llama",
+                readOnly: true,
+            }
+        },
     ];
 
     local indexVolumeMounts = [
@@ -366,7 +387,22 @@ function(
             mountPath: "/mnt/infinigram-array/v4-olmo-2-0325-32b-anneal-adapt",
             name: "infinigram-array-v4-olmo-2-0325-32b-anneal-adapt",
             readOnly: true,
-        }
+        },
+        {
+            mountPath: "/mnt/infinigram-array/v4-tulu-3-8b-adapt",
+            name: "infinigram-array-v4-tulu-3-8b-adapt",
+            readOnly: true,
+        },
+        {
+            mountPath: "/mnt/infinigram-array/v4-tulu-3-70b-adapt",
+            name: "infinigram-array-v4-tulu-3-70b-adapt",
+            readOnly: true,
+        },
+        {
+            mountPath: "/mnt/infinigram-array/v4-tulu-3-405b-adapt",
+            name: "infinigram-array-v4-tulu-3-405b-adapt",
+            readOnly: true,
+        },
     ];
 
     local deployment = {
