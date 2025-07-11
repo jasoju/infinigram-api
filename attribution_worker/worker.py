@@ -32,10 +32,14 @@ from .get_documents import (
 
 _TASK_RUN = "run"
 
+# load configuration
 config = get_config()
 
+# initialize queue
 queue = Queue.from_url(config.attribution_queue_url, name=config.attribution_queue_name)
 
+
+# tracer set up (telemetry package)
 tracer_provider = TracerProvider()
 
 if os.getenv("ENV") == "development":
@@ -55,6 +59,7 @@ _TASK_NAME_KEY = "saq.task_name"
 _TASK_TAG_KEY = "saq.action"
 
 
+# main worker that performs the attribution
 async def attribution_job(
     ctx: Context,
     *,
@@ -91,8 +96,10 @@ async def attribution_job(
         if worker is not None:
             otel_span.set_attribute(SpanAttributes.MESSAGING_CLIENT_ID, worker.id)
 
+        # get index
         infini_gram_index = indexes[AvailableInfiniGramIndexId(index)]
 
+        # extract spans of text
         attribute_result = await asyncio.to_thread(
             infini_gram_index.attribute,
             input=input,
@@ -107,12 +114,14 @@ async def attribution_job(
             np.ceil(len(attribute_result.input_token_ids) * maximum_span_density)
         )
 
+        # sort spans
         sorted_spans = sort_and_cap_spans(
             attribute_result.spans,
             ranking_method=span_ranking_method,
             maximum_num_spans=maximum_num_spans,
         )
 
+        # get documents for each span
         document_request_by_span = get_document_requests(
             spans=sorted_spans,
             input_token_ids=attribute_result.input_token_ids,
@@ -125,6 +134,7 @@ async def attribution_job(
             document_request_by_span=document_request_by_span,
         )
 
+        # put documents to spans 
         spans_with_documents: list[AttributionSpan] = get_spans_with_documents(
             infini_gram_index=infini_gram_index,
             spans=sorted_spans,
@@ -134,6 +144,7 @@ async def attribution_job(
             maximum_context_length_snippet=maximum_context_length_snippet,
         )
 
+        # create response and pack everything into a json 
         response = AttributionResponse(
             index=infini_gram_index.index,
             spans=spans_with_documents,
