@@ -96,7 +96,7 @@ async def attribution_job(
         if worker is not None:
             otel_span.set_attribute(SpanAttributes.MESSAGING_CLIENT_ID, worker.id)
 
-        # get index
+        # get index (from list of all availiable indixes by index id)
         infini_gram_index = indexes[AvailableInfiniGramIndexId(index)]
 
         # extract spans of text
@@ -110,18 +110,20 @@ async def attribution_job(
         )
 
         # Limit the density of spans, and keep the longest ones
+        # calculated maximum number of spans depends on length of input (tokens) and a predefined maximum_span_density value (float)
         maximum_num_spans = int(
             np.ceil(len(attribute_result.input_token_ids) * maximum_span_density)
         )
 
-        # sort spans
+        # sort spans by either LENGTH or UNIGRAM_LOGPROB_SUM
+        # and only returns max number of spans in the form of a list
         sorted_spans = sort_and_cap_spans(
             attribute_result.spans,
             ranking_method=span_ranking_method,
             maximum_num_spans=maximum_num_spans,
         )
 
-        # get documents for each span
+        # get all documents pointers for each span
         document_request_by_span = get_document_requests(
             spans=sorted_spans,
             input_token_ids=attribute_result.input_token_ids,
@@ -129,12 +131,14 @@ async def attribution_job(
             maximum_context_length=maximum_context_length,
         )
 
+        # retrieve actual texts for each document pointer
         documents_by_span = await asyncio.to_thread(
             infini_gram_index.get_documents_by_pointers,
             document_request_by_span=document_request_by_span,
         )
 
         # put documents to spans 
+        # function joins together: raw spans, documents, decoded text of those documents
         spans_with_documents: list[AttributionSpan] = get_spans_with_documents(
             infini_gram_index=infini_gram_index,
             spans=sorted_spans,

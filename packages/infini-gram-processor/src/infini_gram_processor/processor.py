@@ -203,6 +203,9 @@ class InfiniGramProcessor:
 
         documents_by_span_result = self.__handle_error(get_docs_by_pointers_response)
 
+        # returns list of list
+        # outer list: spans
+        # inner list: documents for one specific span 
         return [
             [
                 Document(
@@ -211,9 +214,9 @@ class InfiniGramProcessor:
                     display_length=document_result["disp_len"],
                     needle_offset=document_result["needle_offset"],
                     metadata=json.loads(document_result["metadata"]),
-                    token_ids=document_result["token_ids"],
-                    text=self.decode_tokens(document_result["token_ids"]),
-                    blocked=document_result["blocked"],
+                    token_ids=document_result["token_ids"],   # text of document in tokens
+                    text=self.decode_tokens(document_result["token_ids"]),   # decoded version of text
+                    blocked=document_result["blocked"],   # ? indicating if document in blocked due to privacy/legal filtering
                 )
                 for document_result in documents_result
             ]
@@ -346,18 +349,24 @@ class InfiniGramProcessor:
         minimum_span_length: int,
         maximum_frequency: int,
     ) -> InfiniGramAttributionResponse:
+        
+        # tokenize input string
         input_ids = self.tokenize(input)
 
+        # get token ids of delimiters (? whitespace, punctuation)
         delimiter_token_ids = self.tokenizer.tokenize_attribution_delimiters(delimiters)
 
+        # call main attribution function from infinigram package 
+        # returns a dict of all spans with their "metadata" and checks if input parameters are valid
         attribute_response = self.infini_gram_engine.attribute(
             input_ids=input_ids,
             delim_ids=delimiter_token_ids,
             min_len=minimum_span_length,
             max_cnt=maximum_frequency,
-            enforce_bow=not allow_spans_with_partial_words,
+            enforce_bow=not allow_spans_with_partial_words,  # bow = beginning of word (ensures span boundaries align with word boundaries if set to True)
         )
 
+        # handles potential errors
         attribute_result = self.__handle_error(attribute_response)
 
         return InfiniGramAttributionResponse(
