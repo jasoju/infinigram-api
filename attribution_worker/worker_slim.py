@@ -12,17 +12,6 @@ from infini_gram_processor.models.models import (
     AttributionResponse,
     AttributionSpan,
 )
-from opentelemetry import trace
-from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.semconv.trace import SpanAttributes
-from opentelemetry.trace import SpanKind
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-from saq import Queue
-from saq.types import Context, SettingsDict
-
 from .config import get_config
 from .get_documents import (
     get_document_requests,
@@ -30,38 +19,14 @@ from .get_documents import (
     sort_and_cap_spans,
 )
 
-_TASK_RUN = "run"
 
 # load configuration
 config = get_config()
 
-# initialize queue
-queue = Queue.from_url(config.attribution_queue_url, name=config.attribution_queue_name)
-
-
-# tracer set up (telemetry package)
-tracer_provider = TracerProvider()
-
-if os.getenv("ENV") == "development":
-    tracer_provider.add_span_processor(
-        span_processor=SimpleSpanProcessor(OTLPSpanExporter())
-    )
-else:
-    tracer_provider.add_span_processor(
-        BatchSpanProcessor(CloudTraceSpanExporter(project_id="ai2-reviz"))  # type:ignore
-    )
-
-trace.set_tracer_provider(tracer_provider)
-
-tracer = trace.get_tracer(config.application_name)
-
-_TASK_NAME_KEY = "saq.task_name"
-_TASK_TAG_KEY = "saq.action"
 
 
 # main worker that performs the attribution
 async def attribution_job(
-    ctx: Context,
     *,
     index: str,
     input: str,
@@ -75,27 +40,7 @@ async def attribution_job(
     maximum_context_length_long: int,
     maximum_context_length_snippet: int,
     maximum_documents_per_span: int,
-    otel_context: dict[str, Any],
 ) -> str:
-    extracted_context = TraceContextTextMapPropagator().extract(carrier=otel_context)
-    with tracer.start_as_current_span(
-        "attribution-worker/attribute",
-        kind=SpanKind.CLIENT,
-        context=extracted_context,
-        attributes={
-            SpanAttributes.MESSAGING_SYSTEM: "saq",
-            _TASK_NAME_KEY: "attribute",
-            _TASK_TAG_KEY: "apply_async",
-        },
-    ) as otel_span:
-        job = ctx.get("job")
-        if job is not None:
-            otel_span.set_attribute(SpanAttributes.MESSAGING_MESSAGE_ID, job.key)
-
-        worker = ctx.get("worker")
-        if worker is not None:
-            otel_span.set_attribute(SpanAttributes.MESSAGING_CLIENT_ID, worker.id)
-
         # get index (from list of all availiable indixes by index id)
         infini_gram_index = indexes[AvailableInfiniGramIndexId(index)]
 
@@ -139,6 +84,7 @@ async def attribution_job(
 
         # put documents to spans 
         # function joins together: raw spans, documents, decoded text of those documents
+        # function joins together: raw spans, documents, decoded text of those documents
         spans_with_documents: list[AttributionSpan] = get_spans_with_documents(
             infini_gram_index=infini_gram_index,
             spans=sorted_spans,
@@ -155,8 +101,3 @@ async def attribution_job(
             input_tokens=infini_gram_index.tokenize_to_list(input),
         )
         return response.model_dump_json()
-
-
-settings = SettingsDict(
-    queue=queue, functions=[("attribute", attribution_job)], concurrency=1
-)

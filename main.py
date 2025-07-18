@@ -1,4 +1,4 @@
-from attribution_worker.worker import attribution_job
+from attribution_worker.worker_slim import attribution_job
 from infini_gram_processor.models import (
     SpanRankingMethod,
 )
