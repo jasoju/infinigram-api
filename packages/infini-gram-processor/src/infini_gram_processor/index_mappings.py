@@ -71,21 +71,21 @@ index_mappings: IndexMappings = {
     AvailableInfiniGramIndexId.TULU_3_8B.value: {
         "tokenizer": get_llama_2_tokenizer(),
         "index_dir": [
-            f"{tokenizer_config.index_base_path}/v4-tulu-3-8b-adapt",
+            f"{tokenizer_config.index_base_path}/v4-tulu-3-8b-adapt-llama",
         ],
         "index_dir_diff": [],
     },
     AvailableInfiniGramIndexId.TULU_3_70B.value: {
         "tokenizer": get_llama_2_tokenizer(),
         "index_dir": [
-            f"{tokenizer_config.index_base_path}/v4-tulu-3-70b-adapt",
+            f"{tokenizer_config.index_base_path}/v4-tulu-3-70b-adapt-llama",
         ],
         "index_dir_diff": [],
     },
     AvailableInfiniGramIndexId.TULU_3_405B.value: {
         "tokenizer": get_llama_2_tokenizer(),
         "index_dir": [
-            f"{tokenizer_config.index_base_path}/v4-tulu-3-405b-adapt",
+            f"{tokenizer_config.index_base_path}/v4-tulu-3-405b-adapt-llama",
         ],
         "index_dir_diff": [],
     },
