@@ -41,7 +41,6 @@ async def attribution_job(
     maximum_context_length_snippet: int,
     maximum_documents_per_span: int,
 ) -> str:
-
         # get index (from list of all availiable indixes by index id)
         infini_gram_index = indexes[AvailableInfiniGramIndexId(index)]
 
@@ -84,6 +83,7 @@ async def attribution_job(
         )
 
         # put documents to spans 
+        # function joins together: raw spans, documents, decoded text of those documents
         # function joins together: raw spans, documents, decoded text of those documents
         spans_with_documents: list[AttributionSpan] = get_spans_with_documents(
             infini_gram_index=infini_gram_index,

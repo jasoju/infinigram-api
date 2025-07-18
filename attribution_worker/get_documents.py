@@ -44,6 +44,7 @@ def get_spans_with_documents(
     for span, documents in zip(spans, documents_by_span):
         span_documents: list[AttributionDocument] = []
         for document in documents:
+            # get two versions of document text: long and short
             display_length_long, needle_offset_long, text_long = cut_document(
                 infini_gram_index=infini_gram_index,
                 token_ids=document.token_ids,
@@ -72,6 +73,7 @@ def get_spans_with_documents(
                 )
             )
 
+        # decode span text
         (span_text_tokens, span_text) = get_span_text(
             infini_gram_index=infini_gram_index,
             input_token_ids=input_token_ids,
@@ -79,6 +81,7 @@ def get_spans_with_documents(
             stop=span["r"],
         )
 
+        # create span enriched with decoded span text and all associated documents
         new_span_with_documents = AttributionSpan(
             left=span["l"],
             right=span["r"],
@@ -90,13 +93,14 @@ def get_spans_with_documents(
             documents=span_documents,
         )
 
+        # collect all enriched spans in one list
         spans_with_documents.append(new_span_with_documents)
 
     return spans_with_documents
 
 
 def get_document_requests(
-    spans: list[AttributionSpanFromEngine],
+    spans: list[AttributionSpanFromEngine],  # spans already have a docs variable that contains the pointers 
     input_token_ids: list[int],
     maximum_documents_per_span: int,
     maximum_context_length: int,
@@ -104,14 +108,16 @@ def get_document_requests(
     document_request_by_span: list[GetDocumentByPointerRequest] = []
     for span in spans:
         docs = span["docs"]
+        # if span appears in too many documents keep only a random subset (up to max documents per span)
         if len(docs) > maximum_documents_per_span:
             random.seed(42)  # For reproducibility
             docs = random.sample(docs, maximum_documents_per_span)
+        # create request object for each span (all are collected in one list)
         document_request_by_span.append(
             GetDocumentByPointerRequest(
                 docs=docs,
                 span_ids=input_token_ids[span["l"] : span["r"]],
-                needle_length=span["length"],
+                needle_length=span["length"],  # length of span in tokens(?)
                 maximum_context_length=maximum_context_length,
             )
         )
@@ -130,10 +136,10 @@ def sort_and_cap_spans(
     elif ranking_method == SpanRankingMethod.UNIGRAM_LOGPROB_SUM:
         sorted_spans = sorted(
             spans,
-            key=lambda x: x["unigram_logprob_sum"],
+            key=lambda x: x["unigram_logprob_sum"], # unigram_logprob_sum automatically returned for each span by attribute function of infini_gram package
             reverse=False,
         )
     else:
         raise ValueError(f"Unknown span ranking method: {ranking_method}")
 
-    return sorted(list(sorted_spans[:maximum_num_spans]), key=lambda span: span["l"])
+    return sorted(list(sorted_spans[:maximum_num_spans]), key=lambda span: span["l"])   # only return max number of spans
